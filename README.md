@@ -24,3 +24,12 @@ Clouds are rendered using ray marching of different noise textures. Lighting is 
   cmake ..
   ```  
   * This will generate the Visual Studio solution file. You can open this, start coding and compiling. To start the *cloud* application set the the *clouds* project as start up project.
+  
+**STRUCTURE**
+
+The framework is structured as follows. 
+* All external libraries are stored in *ext* folder. If a library is added, cmake must be executed again to link against the new library.
+* All internal libraries are stored in *lib* folder. 
+* All executable files are stored in *src/exe*. For a clean structure separate executables should be put in separate subfolders.
+* All shader files are stored in *src/shaders*.
+* All resources are stored in *res*
