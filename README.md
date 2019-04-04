@@ -2,6 +2,8 @@
 This project was developed during my master thesis. It renders volumetric clouds in real time, simulates visual properties of clouds and supports scenes with solid objects crossing the cloud layer.
 Clouds are rendered using ray marching of different noise textures. Lighting is realized by applying three components: Beer's law, powder function, Henyey Greenstein function. This work was inspired by the game *Horizon Zero Dawn* and the presentations of *Andrew Schneider*.
 
+![alt text](https://github.com/vanessaschueller/clouds/blob/master/intro5.png)
+
 **PREREQUISITES**
 * CMake
 * Visual Studio
