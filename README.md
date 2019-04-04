@@ -23,4 +23,4 @@ Clouds are rendered using ray marching of different noise textures. Lighting is 
   ```
   cmake ..
   ```  
-  * This will generate the Visual Studio solution file. You can open this, start coding and compiling.
+  * This will generate the Visual Studio solution file. You can open this, start coding and compiling. To start the *cloud* application set the the *clouds* project as start up project.
