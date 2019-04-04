@@ -34,8 +34,8 @@ Clouds are rendered using ray marching of different noise textures. Lighting is 
 **STRUCTURE**
 
 The framework is structured as follows. 
-* All external libraries are stored in *ext* folder. If a library is added, cmake must be executed again to link against the new library.
-* All internal libraries are stored in *lib* folder. 
-* All executable files are stored in *src/exe*. For a clean structure separate executables should be put in separate subfolders.
-* All shader files are stored in *src/shaders*.
-* All resources are stored in *res*
+* All external libraries are stored in `ext` folder. If a library is added, cmake must be executed again to link against the new library.
+* All internal libraries are stored in `lib` folder. 
+* All executable files are stored in `src/exe`. For a clean structure separate executables should be put in separate subfolders.
+* All shader files are stored in `src/shaders`.
+* All resources are stored in `res`.
