@@ -1,0 +1,37 @@
+#version 430
+
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+layout(binding = 0, rgba32f) uniform image3D flowGrid;
+uniform sampler3D sdfTexture;
+uniform sampler3D windTexture;
+uniform sampler2D turbulence;
+float             e = 2.7182818284590452353602874713527f;
+uniform bool      firstRun;
+
+void main()
+{
+    /*
+     * INITIALIZE FLOWMAP
+     */
+    if(firstRun)
+    {
+        vec3 location = ivec3(gl_GlobalInvocationID.xyz);
+        imageStore(flowGrid, ivec3(location), vec4(1.f, 0.f, 0.f, 1.f));
+    }
+    else
+    {
+        /*
+         * NEAR OBJECT -> NO CLOUD
+         */
+        vec3  location           = ivec3(gl_GlobalInvocationID.xyz);
+        float dist               = abs(texelFetch(sdfTexture, ivec3(location), 0).a);
+        float distWeight         = 1 - pow(e, -0.04 * pow(dist, 2));
+        float turbulenceStrength = mix(texelFetch(turbulence, ivec2(location.xy) * 3, 0).r, 1, 1 - pow(e, -0.0005f * pow(dist, 2)));
+
+		vec3 windDirection = texelFetch(windTexture,ivec3(location),0).rgb;
+		vec3 gradient = texelFetch(sdfTexture,ivec3(location),0).rgb;
+
+		imageStore(flowGrid, ivec3(location), vec4((distWeight * turbulenceStrength) * dot(windDirection,vec3(-1,0,0)), 0, 0, 1));
+
+    }
+}

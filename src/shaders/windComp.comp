@@ -1,0 +1,95 @@
+#version 430
+
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+layout(rgba8, binding = 5) uniform image3D outWindTex;
+uniform float time;
+uniform vec3 bbmin;
+uniform vec3 bbmax;
+uniform sampler3D sdfTexture;
+uniform float startHeight = 4000;
+
+// =====================================================================================
+// COMMON
+float random2D(in vec2 st) {
+  return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
+}
+
+// =====================================================================================
+// PERLIN NOISE SPECIFIC
+uniform float perlinAmplitude = 0.5;
+uniform float perlinFrecuency = 0.8;
+uniform float perlinScale = 100.0;
+uniform int perlinOctaves = 4;
+float noiseInterpolation(in vec2 i_coord, in float i_size) {
+  vec2 grid = i_coord * i_size;
+
+  vec2 randomInput = floor(grid);
+  vec2 weights = fract(grid);
+
+  float p0 = random2D(randomInput);
+  float p1 = random2D(randomInput + vec2(1.0, 0.0));
+  float p2 = random2D(randomInput + vec2(0.0, 1.0));
+  float p3 = random2D(randomInput + vec2(1.0, 1.0));
+
+  weights = smoothstep(vec2(0.0, 0.0), vec2(1.0, 1.0), weights);
+
+  return p0 + (p1 - p0) * (weights.x) +
+         (p2 - p0) * (weights.y) * (1.0 - weights.x) +
+         (p3 - p1) * (weights.y * weights.x);
+}
+
+float perlinNoise(vec2 uv, float sc, float f, float a, int o) {
+  float noiseValue = 0.0;
+  float localAplitude = a;
+  float localFrecuency = f;
+  for (int index = 0; index < o; index++) {
+
+    noiseValue += noiseInterpolation(uv, sc * localFrecuency) * localAplitude;
+
+    localAplitude *= 0.25;
+    localFrecuency *= 3.0;
+  }
+  return noiseValue * noiseValue;
+}
+mat4 rotateZ(float rad) {
+  float c = cos(rad);
+  float s = sin(rad);
+  return mat4(c, s, 0.0, 0.0, -s, c, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+              0.0, 1.0);
+}
+
+float sphereDist(vec3 pos) {
+  vec3 sphere = vec3(50, 50, 3);
+  float radius = 100.f;
+
+  return distance(pos, sphere);
+}
+void main() {
+  ivec3 pixel = ivec3(gl_GlobalInvocationID.xyz);
+
+  vec2 uv = vec2(float(pixel.x + 2.0) / 1024.0, float(pixel.y) / 1024.0);
+  vec2 suv = vec2(uv.x + 5.5, uv.y + 5.5);
+
+  vec4 wind = vec4(1.0, 0.0, 0.0, 1.0);
+  wind = rotateZ(perlinNoise(uv, perlinScale * 0.95, perlinFrecuency,
+                             perlinAmplitude, 4) *
+                 6.28) *
+         wind;
+  if (bbmax.y >= startHeight) {
+    if (texture(sdfTexture, pixel).r < 5.f) {
+      wind = -wind;
+    }
+  }
+
+  // float gradient_x = sphereDist(vec2(pixel.x + 1, pixel.y)) +
+  // sphereDist(vec2(pixel.x + 1, pixel.y + 1)) - sphereDist(pixel) -
+  // sphereDist(vec2(pixel.x, pixel.y + 1)); float gradient_y =
+  // sphereDist(vec2(pixel.x, pixel.y+1)) + sphereDist(vec2(pixel.x + 1, pixel.y
+  // +1)) - sphereDist(pixel) - sphereDist(vec2(pixel.x + 1, pixel.y));
+
+  float dist = sphereDist(pixel);
+  // if(dist < 100.f)
+  //	wind = -wind;
+  //	wind.xz += vec2(gradient_x,gradient_y) ;
+  imageStore(outWindTex, pixel, wind);
+}

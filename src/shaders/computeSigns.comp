@@ -1,0 +1,102 @@
+#version 450 core
+
+#define UINT_MAX 0xffffffff
+#define FLT_MAX 3.402823e+38
+
+layout(local_size_x = 4, local_size_y = 4, local_size_z = 4) in;
+
+layout(binding = 0, r32f) restrict uniform image3D grid;
+layout(binding = 1, r32ui) restrict uniform uimage3D cands;
+
+uniform uvec3 res;
+uniform vec3 bmin, bmax;
+
+struct Tri
+{
+    vec4 v0, v1, v2;
+};
+
+layout(binding = 0, std430) restrict readonly buffer TriangleList { Tri tris[]; };
+
+bool intersect_triangle(const vec3 origin, const vec3 direction, const Tri tri, inout float t,
+                        inout vec2 barycentric, inout float dsign)
+{
+    float float_epsilon  = 1e-23f;
+    float border_epsilon = 1e-6f;
+
+    // Find vectors for two edges sharing V1
+    vec3 e1 = vec3(tri.v1) - vec3(tri.v0);
+    vec3 e2 = vec3(tri.v2) - vec3(tri.v0);
+    vec3 n  = vec3(tri.v0.w, tri.v1.w, tri.v2.w);
+    dsign   = sign(dot(n, -direction));
+
+    // if determinant is near zero, ray lies in plane of triangle
+    vec3  P   = cross(vec3(direction), e2);
+    float det = dot(e1, P);
+    if(det > -float_epsilon && det < float_epsilon)
+        return false;
+
+    // Calculate u parameter and test bound
+    float inv_det = 1.f / det;
+    vec3  T       = origin.xyz - vec3(tri.v0);
+    barycentric.x = dot(T, P) * inv_det;
+
+    // The intersection lies outside of the triangle
+    if(barycentric.x < -border_epsilon || barycentric.x > 1.f + border_epsilon)
+        return false;
+
+    // Calculate V parameter and test bound
+    vec3 Q        = cross(T, e1);
+    barycentric.y = dot(vec3(direction), Q) * inv_det;
+    // The intersection lies outside of the triangle
+    if(barycentric.y < -border_epsilon || barycentric.x + barycentric.y > 1.f + border_epsilon)
+        return false;
+
+    return (t = dot(e2, Q) * inv_det) > float_epsilon;
+}
+
+void main()
+{
+    ivec3 g_ID = ivec3(gl_GlobalInvocationID);
+
+    ivec3 resi = ivec3(res);
+
+    float dsign = 1;
+    float t     = FLT_MAX;
+
+    if(g_ID.x < resi.x && g_ID.y < resi.y && g_ID.z < resi.z)
+    {
+        vec3 pos        = vec3(g_ID) / vec3(resi - 1);
+        pos             = pos * (bmax - bmin) + bmin;
+        bool first_half = g_ID.x < resi.x / 2;
+        vec3 dir        = first_half ? vec3(-1, 0, 0) : vec3(1, 0, 0);
+        int  start_x    = first_half ? 0 : g_ID.x;
+        int  end_x      = first_half ? g_ID.x : resi.x - 1;
+        int  linear_idx = start_x + g_ID.y * resi.x + g_ID.z * resi.y * resi.x;
+        int  prev_idx   = linear_idx - 1;
+        uint start      = linear_idx == 0 ? 0
+                                     : imageLoad(cands,
+                                                 ivec3(prev_idx % resi.x,
+                                                       (prev_idx / resi.x) % resi.y,
+                                                       prev_idx / (resi.y * resi.x)))
+                                               .r;
+        uint num_candidates = imageLoad(cands, ivec3(end_x, g_ID.yz)).r - start;
+
+        for(int j = 0; j < num_candidates; ++j)
+        {
+            Tri   tri = tris[start + j];
+            float new_sign;
+            float new_t = t;
+            vec2  unused;
+            bool  has_intersect = intersect_triangle(pos, dir, tri, new_t, unused, new_sign);
+            if(has_intersect && new_t < t && new_t > 0)
+            {
+                dsign = new_sign;
+				t = new_t;
+            }
+        }
+
+        if(dsign < 0)
+            imageStore(grid, g_ID, -imageLoad(grid, g_ID));
+    }
+}

@@ -1,0 +1,37 @@
+#version 430
+
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+layout(binding = 0, rgba32f) uniform image3D smoothGrid;
+uniform sampler3D sdfTexture;
+
+vec3 calcNormal(vec3 pixel)
+{
+    vec2 eps = vec2(1.0,0.0);
+    vec3 lookUpXPlus  = pixel + eps.xyy;
+    vec3 lookUpXMinus = pixel - eps.xyy;
+    vec3 lookUpYPlus  = pixel + eps.yxy;
+    vec3 lookUpYMinus = pixel - eps.yxy;
+    vec3 lookUpZPlus  = pixel + eps.yyx;
+    vec3 lookUpZMinus = pixel - eps.yyx;
+	lookUpXPlus.x = max(0,min(lookUpXPlus.x,textureSize(sdfTexture,0).x-1));
+	lookUpYPlus.y = max(0,min(lookUpYPlus.y,textureSize(sdfTexture,0).y-1));
+	lookUpZPlus.z = max(0,min(lookUpZPlus.z,textureSize(sdfTexture,0).z-1));
+	lookUpXMinus.x = max(0,min(lookUpXMinus.x,textureSize(sdfTexture,0).x-1));
+	lookUpYMinus.y = max(0,min(lookUpYMinus.y,textureSize(sdfTexture,0).x-1));
+	lookUpZMinus.z = max(0,min(lookUpZMinus.z,textureSize(sdfTexture,0).x-1));
+
+    vec3 nor          = vec3((texelFetch(sdfTexture, ivec3(lookUpXPlus), 0).r - texelFetch(sdfTexture, ivec3(lookUpXMinus), 0).r)/2,
+							 (texelFetch(sdfTexture, ivec3(lookUpYPlus), 0).r - texelFetch(sdfTexture, ivec3(lookUpYMinus), 0).r)/2,
+							 (texelFetch(sdfTexture, ivec3(lookUpZPlus), 0).r - texelFetch(sdfTexture, ivec3(lookUpZMinus), 0).r)/2);
+    return normalize(nor);
+}
+
+void main()
+{
+    ivec3 location = ivec3(gl_GlobalInvocationID.xyz);
+    float dist     = texelFetch(sdfTexture, location, 0).r;
+    vec3  normal   = calcNormal(location);
+	if(dist < 0) normal = vec3(0,0,0);
+
+    imageStore(smoothGrid, location, vec4(normal, dist));
+}

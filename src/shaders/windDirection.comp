@@ -1,0 +1,25 @@
+#version 430
+
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+layout(binding = 0, rgba32f) uniform image3D windGrid;
+uniform sampler3D sdfTexture;
+float             e = 2.7182818284590452353602874713527f;
+uniform float random;
+
+void main()
+{
+    ivec3 location = ivec3(gl_GlobalInvocationID.xyz);
+    vec3  gradient = texelFetch(sdfTexture, location, 0).rgb;
+    float dist     = texelFetch(sdfTexture, location, 0).a;
+    vec3 globalWind = vec3(-1.0, 0.0, 0.0);
+	vec3 reflectedWind = vec3(0);
+	vec3 finalWind = vec3(0);
+    float angleCos      = dot(gradient, globalWind);
+	if(abs(dist)>=0)
+	{
+	 reflectedWind = reflect(globalWind,gradient);
+     finalWind     = mix(globalWind, reflectedWind, pow(e, -0.004 * pow(abs(dist), 2)));
+	}
+    imageStore(windGrid, location, vec4(finalWind, dist));
+}
+

@@ -1,0 +1,32 @@
+#version 430
+
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+layout(binding = 0, rgba32f) uniform image3D smoothGrid;
+uniform sampler3D sdfTexture;
+
+void main()
+{
+    ivec3 location = ivec3(gl_GlobalInvocationID.xyz);
+	ivec2 eps = ivec2(1.0,0.0);
+	float dist = texelFetch(sdfTexture, location, 0).a;
+    vec3 val     = 
+	(texelFetch(sdfTexture, location, 0).rgb //origin
+	+ texelFetch(sdfTexture, location+eps.xyy, 0).rgb + texelFetch(sdfTexture, location-eps.xyy, 0).rgb //right, left
+	+ texelFetch(sdfTexture, location+eps.yxy, 0).rgb + texelFetch(sdfTexture, location-eps.yxy, 0).rgb //up, down
+	+ texelFetch(sdfTexture, location+eps.yyx, 0).rgb + texelFetch(sdfTexture, location-eps.yyx, 0).rgb //front, back
+	+ texelFetch(sdfTexture, location+eps.xxy, 0).rgb + texelFetch(sdfTexture, location-eps.xxy, 0).rgb //rightup, leftdown
+	+ texelFetch(sdfTexture, location+eps.xyy-eps.yxy, 0).rgb + texelFetch(sdfTexture, location-eps.xyy+eps.yxy, 0).rgb //rightdown, leftup
+	+ texelFetch(sdfTexture, location+eps.xxx, 0).rgb + texelFetch(sdfTexture, location-eps.xxx, 0).rgb //rightupfront, leftdownback
+	+ texelFetch(sdfTexture, location+eps.xyx-eps.yxy, 0).rgb + texelFetch(sdfTexture, location-eps.xyx+eps.yxy, 0).rgb //rightdownfront, leftupback
+	+ texelFetch(sdfTexture, location+eps.xyy-eps.yxx, 0).rgb + texelFetch(sdfTexture, location-eps.xyy+eps.yxx, 0).rgb //rightdownback, leftupfront
+	+ texelFetch(sdfTexture, location+eps.xxy-eps.yyx, 0).rgb + texelFetch(sdfTexture, location-eps.xxy+eps.yyx, 0).rgb //rightupback, leftdownfront
+	+ texelFetch(sdfTexture, location+eps.yxx, 0).rgb + texelFetch(sdfTexture, location-eps.yxx, 0).rgb //upfront, downback
+	+ texelFetch(sdfTexture, location+eps.yxy-eps.yyx, 0).rgb + texelFetch(sdfTexture, location-eps.yxy+eps.yyx, 0).rgb //upback, downfront
+	+ texelFetch(sdfTexture, location+eps.xyx, 0).rgb + texelFetch(sdfTexture, location-eps.xyx, 0).rgb //rightfront, leftback
+	+ texelFetch(sdfTexture, location+eps.xyy-eps.yyx, 0).rgb + texelFetch(sdfTexture, location-eps.xyy+eps.yyx, 0).rgb //rightback, leftfront
+	)/27;
+
+
+    imageStore(smoothGrid, location, vec4(val,dist));
+}
+
